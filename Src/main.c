@@ -28,10 +28,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include <stdio.h>
+#include <string.h>
+#include "structoperation.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+#define RXBUFFERSIZE  256
+
+char RxBuffer[RXBUFFERSIZE];
+uint8_t aRxBuffer;
+uint8_t Uart1_Rx_Cnt = 0;
 
 /* USER CODE END PTD */
 
@@ -96,7 +106,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-
+	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,7 +114,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+		printf("test");
+		HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -153,7 +164,36 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(huart);
+  /* NOTE: This function Should not be modified, when the callback is needed,
+           the HAL_UART_TxCpltCallback could be implemented in the user file
+   */
+ 
+	if(Uart1_Rx_Cnt >= 255)
+	{
+		Uart1_Rx_Cnt = 0;
+		memset(RxBuffer,0x00,sizeof(RxBuffer));
+		HAL_UART_Transmit(&huart1, (uint8_t *)"数据溢出", 10,0xFFFF); 	
+        
+	}
+	else
+	{
+		RxBuffer[Uart1_Rx_Cnt++] = aRxBuffer;
+		//下面是串口信息处理函数，待修改
+		if((RxBuffer[Uart1_Rx_Cnt-1] == 0x0A)&&(RxBuffer[Uart1_Rx_Cnt-2] == 0x0D))
+		{
+			HAL_UART_Transmit(&huart1, (uint8_t *)&RxBuffer, Uart1_Rx_Cnt,0xFFFF);
+            while(HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX);
+			Uart1_Rx_Cnt = 0;
+			memset(RxBuffer,0x00,sizeof(RxBuffer));
+		}
+	}
+	
+	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
+}
 /* USER CODE END 4 */
 
 /**

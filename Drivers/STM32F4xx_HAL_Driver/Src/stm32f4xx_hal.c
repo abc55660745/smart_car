@@ -34,6 +34,26 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include <stdio.h>
+
+//以下代码重写了stdio里的函数
+
+extern UART_HandleTypeDef huart1;
+
+int fputc(int ch, FILE *f)
+{
+	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xffff);
+  return ch;
+}
+
+int fgetc(FILE *f)
+{
+  uint8_t ch = 0;
+  HAL_UART_Receive(&huart1, &ch, 1, 0xffff);
+  return ch;
+}
+
+//用户代码结束
 
 /** @addtogroup STM32F4xx_HAL_Driver
   * @{
