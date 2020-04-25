@@ -121,8 +121,30 @@ int main(void)
     /* USER CODE END WHILE */
 		//printf("test");
 		int16_t data[2] = {10,20};
+		data[0] = direction;
 		send(data, 2);
-		HAL_Delay(1000);
+		//__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
+		while (direction< 110)
+	  {
+		  direction++;
+			int16_t data[2] = {10,20};
+			data[0] = direction;
+			send(data, 2);
+		  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);    //?????,?????
+//		  TIM3->CCR1 = pwmVal;    ?????
+		  HAL_Delay(20);
+	  }
+	  while (direction > 25)
+	  {
+		  direction--;
+			int16_t data[2] = {10,20};
+			data[0] = direction;
+			send(data, 2);
+		  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);    //?????,?????
+//		  TIM3->CCR1 = pwmVal;     ?????
+		  HAL_Delay(20);
+		}
+		HAL_Delay(200);
 		//printf("\ntt\n");
     /* USER CODE BEGIN 3 */
   }
@@ -190,6 +212,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	else
 	{
 		RxBuffer[Uart1_Rx_Cnt++] = aRxBuffer;
+		direction = RxBuffer[0];
 		//下面是串口信息处理函数，待修改
 		/*
 		if((RxBuffer[Uart1_Rx_Cnt-1] == 0x0A)&&(RxBuffer[Uart1_Rx_Cnt-2] == 0x0D))
