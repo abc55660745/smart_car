@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "structoperation.h"
 
 /* USER CODE END Includes */
@@ -42,6 +43,9 @@
 char RxBuffer[RXBUFFERSIZE];
 uint8_t aRxBuffer;
 uint8_t Uart1_Rx_Cnt = 0;
+uint16_t direction = 0;
+
+void send(int16_t*, uint8_t);
 
 /* USER CODE END PTD */
 
@@ -107,15 +111,19 @@ int main(void)
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
-
+	printf("start\n");
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-		printf("test");
+		//printf("test");
+		int16_t data[2] = {10,20};
+		send(data, 2);
 		HAL_Delay(1000);
+		//printf("\ntt\n");
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -183,6 +191,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		RxBuffer[Uart1_Rx_Cnt++] = aRxBuffer;
 		//下面是串口信息处理函数，待修改
+		/*
 		if((RxBuffer[Uart1_Rx_Cnt-1] == 0x0A)&&(RxBuffer[Uart1_Rx_Cnt-2] == 0x0D))
 		{
 			HAL_UART_Transmit(&huart1, (uint8_t *)&RxBuffer, Uart1_Rx_Cnt,0xFFFF);
@@ -190,9 +199,26 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			Uart1_Rx_Cnt = 0;
 			memset(RxBuffer,0x00,sizeof(RxBuffer));
 		}
+		*/
 	}
 	
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
+}
+
+void send(int16_t *in, uint8_t n)
+{
+	struct anotext send;
+	send.head = 0xaaaa;
+	send.name = 0xf3;
+	send.len = n * 2;
+	send.data = malloc(n * 2 + 1);
+	send.data[n * 2] = 0;
+	short2char(send.data, in, n * 2);
+	send.sum = n * 2 + 5;
+	char *ss = ano2char(send);
+	HAL_UART_Transmit(&huart1, (uint8_t *)ss, n * 2 + 5,0xFFFF);
+	free(ss);
+	delstr(send);
 }
 /* USER CODE END 4 */
 
