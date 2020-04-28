@@ -109,6 +109,8 @@ int main(void)
   MX_TIM4_Init();
   MX_USART1_UART_Init();
   MX_TIM7_Init();
+	MX_TIM1_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
@@ -208,13 +210,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		Uart1_Rx_Cnt = 0;
 		memset(RxBuffer,0x00,sizeof(RxBuffer));
-		HAL_UART_Transmit(&huart1, (uint8_t *)"Êý¾ÝÒç³ö", 10,0xFFFF); 	
+		HAL_UART_Transmit(&huart1, (uint8_t *)"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 10,0xFFFF); 	
         
 	}
 	else
 	{
 		RxBuffer[Uart1_Rx_Cnt++] = aRxBuffer;
-		//ÏÂÃæÊÇ´®¿ÚÐÅÏ¢´¦Àíº¯Êý£¬´ýÐÞ¸Ä
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½
 		/*
 		if((RxBuffer[Uart1_Rx_Cnt-1] == 0x0A)&&(RxBuffer[Uart1_Rx_Cnt-2] == 0x0D))
 		{
@@ -238,7 +240,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			free(sss);
 			delstr(send);
 			
-			//¶Áµ½µÄÊý¾Ý¸øË­Ð´ÔÚÏÂÃæ
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¸ï¿½Ë­Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		}
 	}
 	

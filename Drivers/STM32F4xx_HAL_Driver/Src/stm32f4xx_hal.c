@@ -36,7 +36,7 @@
 #include "stm32f4xx_hal.h"
 #include <stdio.h>
 
-//ÒÔÏÂ´úÂëÖØĞ´ÁËstdioÀïµÄº¯Êı
+//ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½Ğ´ï¿½ï¿½stdioï¿½ï¿½Äºï¿½ï¿½ï¿½
 
 extern UART_HandleTypeDef huart1;
 
@@ -53,7 +53,7 @@ int fgetc(FILE *f)
   return ch;
 }
 
-//ÓÃ»§´úÂë½áÊø
+//ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 /** @addtogroup STM32F4xx_HAL_Driver
   * @{
