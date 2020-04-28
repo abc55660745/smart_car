@@ -124,7 +124,7 @@ int main(void)
 		data[0] = direction;
 		send(data, 2);
 		//__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
-		while (direction< 110)
+		while (direction< 113)
 	  {
 		  direction++;
 			int16_t data[2] = {10,20};
@@ -134,7 +134,7 @@ int main(void)
 //		  TIM3->CCR1 = pwmVal;    ?????
 		  HAL_Delay(20);
 	  }
-	  while (direction > 25)
+	  while (direction > 23)
 	  {
 		  direction--;
 			int16_t data[2] = {10,20};
@@ -198,6 +198,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
+	struct anotext send;
+	char ss[2], *sss;
   /* NOTE: This function Should not be modified, when the callback is needed,
            the HAL_UART_TxCpltCallback could be implemented in the user file
    */
@@ -212,7 +214,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	else
 	{
 		RxBuffer[Uart1_Rx_Cnt++] = aRxBuffer;
-		direction = RxBuffer[0];
 		//下面是串口信息处理函数，待修改
 		/*
 		if((RxBuffer[Uart1_Rx_Cnt-1] == 0x0A)&&(RxBuffer[Uart1_Rx_Cnt-2] == 0x0D))
@@ -223,6 +224,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			memset(RxBuffer,0x00,sizeof(RxBuffer));
 		}
 		*/
+		struct anotext t = char2ano(RxBuffer);
+		if(t.head == 0xaaaf && t.sum == Uart1_Rx_Cnt)
+		{
+			send.head = 0xaaaa;
+			send.name = 0xef;
+			send.len = 2;
+			ss[0] = t.name;
+			ss[1] = t.sum;
+			send.sum = 7;
+			sss = ano2char(send);
+			HAL_UART_Transmit(&huart1, (uint8_t *)sss, 7,0xFFFF);
+			free(sss);
+			delstr(send);
+			
+			//读到的数据给谁写在下面
+		}
 	}
 	
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);

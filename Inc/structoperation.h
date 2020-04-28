@@ -17,5 +17,6 @@ void short2char(char*, int16_t[], uint8_t);
 void rxprocess(char[]);
 void delstr(struct anotext);
 void strcpyn(char*, char*, uint8_t);
+void char2short(char* in, int16_t out[], uint8_t n);
 
 #endif

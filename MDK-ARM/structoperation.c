@@ -4,28 +4,27 @@
 
 struct anotext char2ano(char input[])
 {
-	char *point = input, *temp;
+	uint8_t *point = (uint8_t*)input, *temp;
 	struct anotext r;
-	uint8_t sum;
-	r.head = *(uint16_t*)point;
-	point += 2;
-	r.name = *(uint8_t*)point;
-	point++;
-	r.len = *(uint8_t*)point;
-	point++;
-	sum = strlen(input);
-	r.sum = input[sum - 1];
-	if(r.sum != sum || r.sum - 5 != r.len)
+	r.head = 0x0000;
+	if(*point == 0xaa)
 	{
-		r.len = 0;
-		r.sum = 0;
-		r.data = NULL;
-		return r;
-	}
-	r.data = malloc(r.len + 1);
-	for(temp = r.data; temp - r.data < r.len; temp++, point++)
-	{
-		*temp = *point;
+		point++;
+		if(*point == 0xaf)
+		{
+			//下面是功能字解析，现在就写了一个
+			point++;
+			if(*point == 0x10)
+			{
+				point++;
+				r.data = malloc(*point);
+				char2short((char*)point + 1, (int16_t*)r.data, *point / 2);
+				r.head = 0xaaaf;
+				r.name = 0x10;
+				r.len = *point;
+				r.sum = *(point + *point);
+			}
+		}
 	}
 	return r;
 }
@@ -78,4 +77,12 @@ void strcpyn(char *dest, char *sour, uint8_t n)
 	}
 }
 
-
+void char2short(char* in, int16_t out[], uint8_t n)
+{
+	char *sp;
+	int16_t *ip;
+	for(sp = in, ip = out; sp >= in; sp += 2, ip++)
+	{
+		*ip = *(int16_t*)sp;
+	}
+}
