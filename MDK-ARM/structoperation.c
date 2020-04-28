@@ -4,7 +4,7 @@
 
 struct anotext char2ano(char input[])
 {
-	uint8_t *point = (uint8_t*)input, *temp;
+	uint8_t *point = (uint8_t*)input;
 	struct anotext r;
 	r.head = 0x0000;
 	if(*point == 0xaa)

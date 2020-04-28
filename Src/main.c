@@ -44,6 +44,7 @@ char RxBuffer[RXBUFFERSIZE];
 uint8_t aRxBuffer;
 uint8_t Uart1_Rx_Cnt = 0;
 uint16_t direction = 0;
+char ad_flag = 1;
 
 void send(int16_t*, uint8_t);
 
@@ -112,14 +113,29 @@ int main(void)
 	MX_TIM1_Init();
   MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
+	//定时器和串口初始化
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+	HAL_TIM_Encoder_Start(&htim8, TIM_CHANNEL_ALL);
+	HAL_TIM_Base_Start_IT(&htim4);
+	HAL_TIM_Base_Start_IT(&htim7);
   /* USER CODE END 2 */
 	printf("start\n");
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		/* 把这个留在这里，ADC启动转换使用
+		if(ad_flag)
+		{
+			HAL_ADC_Start_IT(&hadc2);
+			ad_flag = 0;
+		}
+		*/
+		
     /* USER CODE END WHILE */
 		//printf("test");
 		int16_t data[2] = {10,20};
@@ -210,7 +226,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		Uart1_Rx_Cnt = 0;
 		memset(RxBuffer,0x00,sizeof(RxBuffer));
-		HAL_UART_Transmit(&huart1, (uint8_t *)"�������", 10,0xFFFF); 	
+		HAL_UART_Transmit(&huart1, (uint8_t *)"数据溢出", 10,0xFFFF); 	
         
 	}
 	else
@@ -234,13 +250,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			send.len = 2;
 			ss[0] = t.name;
 			ss[1] = t.sum;
+			send.data = ss;
 			send.sum = 7;
 			sss = ano2char(send);
 			HAL_UART_Transmit(&huart1, (uint8_t *)sss, 7,0xFFFF);
 			free(sss);
 			delstr(send);
 			
-			//���������ݸ�˭д������
+			//写入数据部分写在下面
 		}
 	}
 	
@@ -262,7 +279,24 @@ void send(int16_t *in, uint8_t n)
 	free(ss);
 	delstr(send);
 }
-/* USER CODE END 4 */
+
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == (&htim4))
+    {
+        //定时器4中断函数
+    }
+		else if (htim == (&htim7))
+    {
+        //定时器7中断函数
+    }
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	ad_flag = 1;
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
