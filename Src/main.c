@@ -48,9 +48,12 @@ char ad_flag = 1;
 char ccd_flag = 0;
 char zhijiao = 0;
 uint8_t ccd_s[128];
-uint64_t ccd_p[2];
+uint8_t ccd_p[128];
+uint16_t ccd_count = 0;
+uint16_t ccd_SI;
 
 void send(int16_t*, uint8_t);
+void ccd_process();
 
 /* USER CODE END PTD */
 
@@ -127,6 +130,10 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim4);
 	HAL_TIM_Base_Start_IT(&htim7);
 	
+	HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
+	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
+	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM2_Pin, 0);
+	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM4_Pin, 0);
 	printf("start\n");
   /* USER CODE END 2 */
 	
@@ -292,12 +299,47 @@ void send(int16_t *in, uint8_t n)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim == (&htim4))
-    {
-       //定时器4中断函数
-			
-			
-    }
+  if (htim == (&htim4))
+  {
+	//定时器4中断函数
+		if(ccd_count == ccd_SI)
+		{
+			ccd_count = 0;
+			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 1);
+		}
+		if(ccd_count == 3)
+		{
+			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
+		}
+		if(ccd_flag)
+		{
+			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
+			ccd_flag = 0;
+			ccd_count++;
+			if(ccd_count <= 128)
+			{
+				if(ad_flag)
+				{
+					HAL_ADC_Start_IT(&hadc2);
+					ad_flag = 0;
+				}
+				else
+				{
+					ccd_s[ccd_count - 1] = 127;
+				}
+			}
+			else if(ccd_count == 130)
+			{
+				void ccd_process();
+			}
+		}
+		else
+		{
+			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 1);
+			ccd_flag = 1;
+		}
+	
+  }
 		else if (htim == (&htim7))
     {
         //定时器7中断函数
@@ -307,12 +349,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	ad_flag = 1;
+	HAL_ADC_Stop_IT(&hadc2); 
+	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);
 }
 
 int fputc(int ch, FILE *f)
 {
 	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xffff);
   return ch;
+}
+
+void ccd_process()
+{
+	uint8_t max, min, i = 5, yuzhi;
+	for(max = ccd_s[i], min = ccd_s[i]; i < 123; i++)
+	{
+		if(ccd_s[i] > max)
+			max = ccd_s[i];
+		if(ccd_s[i] < min)
+			min = ccd_s[i];
+	}
+	yuzhi = (max + min) / 2;
+	for(i = 0; i < 128; i++)
+	{
+		if(ccd_s[i] < yuzhi)
+			ccd_p[i] = 0;
+		else
+			ccd_p[i] = 1;
+	}
 }
 
 int fgetc(FILE *f)
