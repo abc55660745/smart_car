@@ -45,6 +45,10 @@ uint8_t aRxBuffer;
 uint8_t Uart1_Rx_Cnt = 0;
 uint16_t direction = 0;
 char ad_flag = 1;
+char ccd_flag = 0;
+char zhijiao = 0;
+uint8_t ccd_s[128];
+uint64_t ccd_p[2];
 
 void send(int16_t*, uint8_t);
 
@@ -122,12 +126,19 @@ int main(void)
 	HAL_TIM_Encoder_Start(&htim8, TIM_CHANNEL_ALL);
 	HAL_TIM_Base_Start_IT(&htim4);
 	HAL_TIM_Base_Start_IT(&htim7);
-  /* USER CODE END 2 */
+	
 	printf("start\n");
+  /* USER CODE END 2 */
+	
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+		
+		
+    /* USER CODE END WHILE */
+		/* USER CODE BEGIN 3 */
+		//printf("test");
 		/* 把这个留在这里，ADC启动转换使用
 		if(ad_flag)
 		{
@@ -135,15 +146,13 @@ int main(void)
 			ad_flag = 0;
 		}
 		*/
-		
-    /* USER CODE END WHILE */
-		//printf("test");
 		int16_t data[2] = {10,20};
 		data[0] = direction;
 		send(data, 2);
 		//__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 		while (direction< 113)
 	  {
+			
 		  direction++;
 			int16_t data[2] = {10,20};
 			data[0] = direction;
@@ -164,7 +173,7 @@ int main(void)
 		}
 		HAL_Delay(200);
 		//printf("\ntt\n");
-    /* USER CODE BEGIN 3 */
+    
   }
   /* USER CODE END 3 */
 }
@@ -285,7 +294,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == (&htim4))
     {
-        //定时器4中断函数
+       //定时器4中断函数
+			
+			
     }
 		else if (htim == (&htim7))
     {
@@ -296,6 +307,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	ad_flag = 1;
+}
+
+int fputc(int ch, FILE *f)
+{
+	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xffff);
+  return ch;
+}
+
+int fgetc(FILE *f)
+{
+  uint8_t ch = 0;
+  HAL_UART_Receive(&huart1, &ch, 1, 0xffff);
+  return ch;
 }
 
 /**
