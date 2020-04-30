@@ -58,6 +58,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define SI_Pin GPIO_PIN_10
+#define SI_GPIO_Port GPIOE
+#define CLK_Pin GPIO_PIN_11
+#define CLK_GPIO_Port GPIOE
+#define PWM2_Pin GPIO_PIN_12
+#define PWM2_GPIO_Port GPIOE
+#define PWM4_Pin GPIO_PIN_13
+#define PWM4_GPIO_Port GPIOE
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
