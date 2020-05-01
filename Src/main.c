@@ -50,10 +50,14 @@ char zhijiao = 0;
 uint8_t ccd_s[128];
 uint8_t ccd_p[128];
 uint16_t ccd_count = 0;
-uint16_t ccd_SI;
+uint16_t ccd_SI = 5000;
+
+uint8_t iii = 0;
 
 void send(int16_t*, uint8_t);
-void ccd_process();
+void ccd_process(void);
+void send_ccd(void);
+void PutChar(unsigned char data);
 
 /* USER CODE END PTD */
 
@@ -134,7 +138,13 @@ int main(void)
 	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
 	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM2_Pin, 0);
 	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM4_Pin, 0);
-	printf("start\n");
+	//printf("start\n");
+	
+	for(;iii < 128; iii++)
+	{
+		ccd_s[iii] = 0;
+	}
+	
   /* USER CODE END 2 */
 	
   /* Infinite loop */
@@ -153,9 +163,10 @@ int main(void)
 			ad_flag = 0;
 		}
 		*/
-		int16_t data[2] = {10,20};
-		data[0] = direction;
-		send(data, 2);
+		//int16_t data[2] = {10,20};
+		//data[0] = direction;
+		//send(data, 2);
+		/*
 		//__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 		while (direction< 113)
 	  {
@@ -177,8 +188,9 @@ int main(void)
 		  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);    //?????,?????
 //		  TIM3->CCR1 = pwmVal;     ?????
 		  HAL_Delay(20);
-		}
-		HAL_Delay(200);
+		}*/
+		HAL_Delay(50);
+		send_ccd();
 		//printf("\ntt\n");
     
   }
@@ -228,6 +240,60 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void SendHex(unsigned char data)
+{
+	unsigned char temp;
+	temp = data >> 4;
+	if(temp >= 10)
+	{
+		PutChar(temp - 10 + 'A');
+	}
+	else
+	{
+		PutChar(temp + '0');
+	}
+	temp = data & 0x0f;
+	if(temp >= 10)
+	{
+		PutChar(temp - 10 + 'A');
+	}
+	else
+	{
+		PutChar(temp + '0');
+	}
+}
+
+void send_ccd()
+{
+	uint8_t dataa[150], *data = dataa;
+	int len;
+	unsigned char lrc=0;
+	dataa[0] = 0;
+	dataa[1] = 132;
+	dataa[2] = 0;
+	dataa[3] = 0;
+	dataa[4] = 0;
+	dataa[5] = 0;
+	for(len = 0; len < 128; len++)
+	{
+		dataa[len + 6] = ccd_s[len];
+	}
+	PutChar('*'); // 发送帧头，一个字节
+	len = (int)(data[0]<<8) | (int)(data[1]) ;
+	data += 2; // 调整指针
+	PutChar('L'); // 发送帧类型，共两个字节
+	PutChar('D');
+	while(len--) // 发送数据的ASCII码，含保留字节和CCD数据
+	{
+		SendHex(*data);
+		lrc += *data++;
+	}
+	lrc = 0-lrc; // 计算CRC，可以为任意值
+	SendHex(lrc); // 发送CRC校验ASCII
+	PutChar('#'); // 发送帧尾，一个字节
+}
+
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   /* Prevent unused argument(s) compilation warning */
@@ -261,14 +327,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		struct anotext t = char2ano(RxBuffer);
 		if(t.head == 0xaaaf && t.sum == Uart1_Rx_Cnt)
 		{
+			uint8_t i;
 			send.head = 0xaaaa;
 			send.name = 0xef;
 			send.len = 2;
 			ss[0] = t.name;
 			ss[1] = t.sum;
 			send.data = ss;
-			send.sum = 7;
+			send.sum = 0;
 			sss = ano2char(send);
+			for(i = 0; i < 6; i++)
+				sss[6] = sss[i];
 			HAL_UART_Transmit(&huart1, (uint8_t *)sss, 7,0xFFFF);
 			free(sss);
 			delstr(send);
@@ -282,6 +351,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void send(int16_t *in, uint8_t n)
 {
+	uint8_t i;
 	struct anotext send;
 	send.head = 0xaaaa;
 	send.name = 0xf3;
@@ -289,8 +359,10 @@ void send(int16_t *in, uint8_t n)
 	send.data = malloc(n * 2 + 1);
 	send.data[n * 2] = 0;
 	short2char(send.data, in, n * 2);
-	send.sum = n * 2 + 5;
+	send.sum = 0;
 	char *ss = ano2char(send);
+	for(i = 0; i < n * 2 + 4; i++)
+		ss[n * 2 + 4] += ss[i];
 	HAL_UART_Transmit(&huart1, (uint8_t *)ss, n * 2 + 5,0xFFFF);
 	free(ss);
 	delstr(send);
@@ -302,12 +374,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   if (htim == (&htim4))
   {
 	//定时器4中断函数
+		
 		if(ccd_count == ccd_SI)
 		{
 			ccd_count = 0;
 			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 1);
 		}
-		if(ccd_count == 3)
+		if(ccd_count == 1)
 		{
 			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
 		}
@@ -330,7 +403,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			else if(ccd_count == 130)
 			{
-				void ccd_process();
+				//void ccd_process();
 			}
 		}
 		else
@@ -349,8 +422,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	ad_flag = 1;
-	HAL_ADC_Stop_IT(&hadc2); 
+	//HAL_ADC_Stop_IT(&hadc2); 
 	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);
+}
+
+void PutChar(unsigned char data)
+{
+	unsigned char *p = &data;
+	HAL_UART_Transmit(&huart1, (uint8_t *)p, 1, 0xffff);
 }
 
 int fputc(int ch, FILE *f)
