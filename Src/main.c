@@ -50,7 +50,7 @@ char zhijiao = 0;
 uint8_t ccd_s[128];
 uint8_t ccd_p[128];
 uint16_t ccd_count = 0;
-uint16_t ccd_SI = 5000;
+uint16_t ccd_SI = 1000;
 
 uint8_t iii = 0;
 
@@ -121,10 +121,10 @@ int main(void)
   MX_TIM4_Init();
   MX_USART1_UART_Init();
   MX_TIM7_Init();
-	MX_TIM1_Init();
+  MX_TIM1_Init();
   MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
-	//定时器和串口初始化
+	//定时器和串口初始�?
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -134,10 +134,10 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim4);
 	HAL_TIM_Base_Start_IT(&htim7);
 	
-	HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
-	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, 0);
-	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM2_Pin, 0);
-	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM4_Pin, 0);
+	HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM4_Pin, GPIO_PIN_RESET);
 	//printf("start\n");
 	
 	for(;iii < 128; iii++)
@@ -146,7 +146,7 @@ int main(void)
 	}
 	
   /* USER CODE END 2 */
-	
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -154,7 +154,8 @@ int main(void)
 		
 		
     /* USER CODE END WHILE */
-		/* USER CODE BEGIN 3 */
+
+    /* USER CODE BEGIN 3 */
 		//printf("test");
 		/* 把这个留在这里，ADC启动转换使用
 		if(ad_flag)
@@ -189,8 +190,17 @@ int main(void)
 //		  TIM3->CCR1 = pwmVal;     ?????
 		  HAL_Delay(20);
 		}*/
-		HAL_Delay(50);
-		send_ccd();
+		char se[130];
+		HAL_Delay(1000);
+		for(iii = 0; iii < 128; iii++)
+		{
+			se[iii] = ccd_p[iii] + '0';
+		}
+		se[128] = '\n';
+		se[129] = '\r';
+		HAL_UART_Transmit(&huart1, (uint8_t *)se, 130,0xFFFF);
+		__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 60);
+		__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 60);
 		//printf("\ntt\n");
     
   }
@@ -375,18 +385,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
 	//定时器4中断函数
 		
-		if(ccd_count == ccd_SI)
-		{
-			ccd_count = 0;
-			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 1);
-		}
-		if(ccd_count == 1)
-		{
-			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
-		}
+		
 		if(ccd_flag)
 		{
-			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 0);
+			HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
 			ccd_flag = 0;
 			ccd_count++;
 			if(ccd_count <= 128)
@@ -403,12 +405,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			else if(ccd_count == 130)
 			{
-				//void ccd_process();
+				ccd_process();
+			}
+			
+			if(ccd_count == ccd_SI)
+			{
+				ccd_count = 0;
+				HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_SET);
+			}
+			if(ccd_count == 1)
+			{
+				HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_RESET);
 			}
 		}
 		else
 		{
-			HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, 1);
+			HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_SET);
 			ccd_flag = 1;
 		}
 	
@@ -416,6 +428,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		else if (htim == (&htim7))
     {
         //定时器7中断函数
+			uint8_t count = 0, i;
+			int16_t sum = 0;
+			for(i = 5; i < 123; i++)
+			{
+				if(!ccd_p[i])
+				{
+					sum += i;
+					count++;
+				}
+			}
+			if(count < 10)
+			{
+				sum /= count;
+				sum -= 63;
+				direction = sum * 0.7 + 68;
+				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
+			}
     }
 }
 
