@@ -43,14 +43,14 @@
 char RxBuffer[RXBUFFERSIZE];  //串口接收使用数组
 uint8_t aRxBuffer;            //同上
 uint8_t Uart1_Rx_Cnt = 0;     //串口接收计数
-uint16_t direction = 0;       //舵机PID值暂存
+uint16_t direction[3] = {0};       //舵机PID值暂存
 char ad_flag = 1;             //ADC完成标志位（用于同步锁）
 char ccd_flag = 0;            //CCD的CLK电平记录，用于调控CLK输出
 char zhijiao = 0;             //暂时没啥用
 uint8_t ccd_s[128] = {0};     //CCD原始值记录
 uint8_t ccd_p[2][128] = {0};  //CCD处理值记录，二维数组保存上一次记录
 uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
-uint16_t ccd_SI = 1000;       //CCD曝光时间，单位为半个CLK周期
+uint16_t ccd_SI = 1600;       //CCD曝光时间，单位为半个CLK周期
 
 //通过串口2向匿名地面站发送函数，参数1为发送数组指针，参数2为发送数组大小
 void send(int16_t*, uint8_t);
@@ -148,8 +148,8 @@ int main(void)
 	HAL_GPIO_WritePin(PWM2_GPIO_Port, PWM4_Pin, GPIO_PIN_RESET);
 	
 	//设置电机PWM（暂时没写差速
-	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 60);
-	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 60);
+	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 70);
+	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 70);
 	//printf("start\n");
 	
   /* USER CODE END 2 */
@@ -201,14 +201,19 @@ int main(void)
 		//通过串口3直接以01发送CCD二值化以后的数据
 		char se[130];
 		uint8_t i;
-		HAL_Delay(1000);
+		HAL_Delay(500);
 		for(i = 0; i < 128; i++)
 		{
 			se[i] = ccd_p[0][i] + '0';
 		}
 		se[128] = '\n';
 		se[129] = '\r';
-		HAL_UART_Transmit(&huart3, (uint8_t *)se, 130,0xFFFF);
+		HAL_UART_Transmit(&huart3, (uint8_t *)direction[0], 1,0xFFFF);
+		
+		
+		
+		//HAL_Delay(50);
+		send_ccd();
 		//printf("\ntt\n");
     
   }
@@ -425,7 +430,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 	
   }
-		else if (htim == (&htim7))
+		if (htim == (&htim7))
     {
       //定时器7中断函数
 			/* 本段代码已废弃，这里以后要写PID程序
@@ -447,6 +452,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 			}
 			*/
+			uint8_t i, count;
+			uint16_t sum;
+			for(i = 10, sum = 0, count = 0;i < 118; i++)
+			{
+				if(!ccd_p[0][i])
+				{
+					sum += i;
+					count++;
+				}
+			}
+			sum /= count;
+			sum -= 63;
+			direction[0] = sum * 0.6 + 68;
+			direction[0] = (direction[0] + direction[1]) / 2;
+			direction[1] = direction[0];
+			__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction[0]);
     }
 }
 
@@ -458,7 +479,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);  //将ADC数据写入CCD数组
 }
 
-//重定义printf使用
+//CCD上位机通信使用
 void PutChar(unsigned char data)
 {
 	unsigned char *p = &data;
@@ -475,7 +496,7 @@ int fputc(int ch, FILE *f)
 //CCD数据处理函数
 void ccd_process()
 {
-	uint8_t max, min, i = 5, j, yuzhi, count = 0, temp[128];
+	uint8_t max, min, i = 5, j, yuzhi, count = 0, temp[128], ok = 0;
 	int16_t sum = 0;
 	
 	//循环寻找CCD原始数据中最大值与最小值
@@ -498,14 +519,21 @@ void ccd_process()
 			ccd_p[0][i] = 1;
 	}
 	
+	/*
+	for(i = 0; i < 128; i++)
+	{
+		temp[i] = 0;
+	}
+	
 	//下面使用两次识别取并集降低干扰
 	//对本次数据与上次数据寻找并集，并将并集存在位置写入临时函数
-	for(i = 4; i < 124; i++)
+	for(i = 4, count = 4; i < 124; i++)
 	{
 		if(ccd_p[0][i] == ccd_p[1][i] && ccd_p[0][i] == 0)
 		{
 			temp[count] = i;
 			count++;
+			ok = 1;
 		}
 	}
 	
@@ -530,11 +558,16 @@ void ccd_process()
 	sum -= 63;
 	//得到本次黑线的中间位置，使用简单计算换算为舵机PWM占空比并写入舵机
 	direction = sum * 0.6 + 68;
-	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
+	if(ok && direction != 0)
+	{
+		__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
+	}
 	for(i = 0; i < 128; i++)
 	{
 		ccd_p[1][i] = ccd_p[0][i];  //将本次数据写入到上次位置，等待下一次读取
 	}
+	*/
+	
 }
 
 //重定义printf使用
