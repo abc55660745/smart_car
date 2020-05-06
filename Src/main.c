@@ -43,14 +43,14 @@
 char RxBuffer[RXBUFFERSIZE];  //串口接收使用数组
 uint8_t aRxBuffer;            //同上
 uint8_t Uart1_Rx_Cnt = 0;     //串口接收计数
-uint16_t direction[3] = {0};       //舵机PID值暂存
+int16_t direction[3] = {0};       //舵机PID值暂存
 char ad_flag = 1;             //ADC完成标志位（用于同步锁）
 char ccd_flag = 0;            //CCD的CLK电平记录，用于调控CLK输出
 char zhijiao = 0;             //暂时没啥用
 uint8_t ccd_s[128] = {0};     //CCD原始值记录
 uint8_t ccd_p[2][128] = {0};  //CCD处理值记录，二维数组保存上一次记录
 uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
-uint16_t ccd_SI = 1600;       //CCD曝光时间，单位为半个CLK周期
+uint16_t ccd_SI = 1200;       //CCD曝光时间，单位为半个CLK周期
 
 //通过串口2向匿名地面站发送函数，参数1为发送数组指针，参数2为发送数组大小
 void send(int16_t*, uint8_t);
@@ -208,7 +208,8 @@ int main(void)
 		}
 		se[128] = '\n';
 		se[129] = '\r';
-		HAL_UART_Transmit(&huart3, (uint8_t *)direction[0], 1,0xFFFF);
+		HAL_UART_Transmit(&huart3, (uint8_t *)direction[1], 1,0xFFFF);
+		//HAL_UART_Transmit(&huart3, (uint8_t *)se, 130,0xFFFF);
 		
 		
 		
@@ -452,12 +453,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 			}
 			*/
-			uint8_t left = 63, right = 63, temp;
-			while(left > 13 && ccd_p[0][left] && ccd_p[0][left - 1]
-					&& ccd_p[0][left - 2] && ccd_p[0][left - 3])
+			uint8_t left = 66, right = 60, temp, *l = &left, *r = &right;
+			while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+					&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
 				left--;
-			while(right < 115 && ccd_p[0][right] && ccd_p[0][right + 1]
-					&& ccd_p[0][right + 2] && ccd_p[0][right + 3])
+			while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+					&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+				right++;
+			left--;
+			right++;
+			if(abs(left - 63) >= abs(right - 63))
+				left = right;
+			else
+				right = left;
+			while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+					&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+				left--;
+			while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+					&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
 				right++;
 			direction[0] = (right + left) / 2;
 			if(direction[1])
@@ -468,7 +481,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			else
 				direction[1] = direction[0];
-			__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction[0]);
+			direction[0] = 23 + direction[0] * 0.7;
+			if(direction[0] > 30 && direction[0] < 106)
+				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction[0]);
+			else
+				direction[1] = 0;
     }
 }
 
@@ -476,7 +493,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	ad_flag = 1;  //ADC同步锁解锁
-	//HAL_ADC_Stop_IT(&hadc2); 
+	 HAL_ADC_Stop_IT(&hadc2); 
 	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);  //将ADC数据写入CCD数组
 }
 

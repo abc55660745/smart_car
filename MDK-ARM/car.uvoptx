@@ -211,9 +211,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>511</LineNumber>
+          <LineNumber>465</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134232306</Address>
+          <Address>134226648</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -222,7 +222,7 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>../Src/main.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\car\../Src/main.c\511</Expression>
+          <Expression>\\car\../Src/main.c\465</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -265,6 +265,21 @@
           <count>7</count>
           <WinNumber>1</WinNumber>
           <ItemText>ccd_s</ItemText>
+        </Ww>
+        <Ww>
+          <count>8</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>right</ItemText>
+        </Ww>
+        <Ww>
+          <count>9</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>left</ItemText>
+        </Ww>
+        <Ww>
+          <count>10</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>ccd_p[0]</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>
