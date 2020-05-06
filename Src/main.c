@@ -452,21 +452,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 			}
 			*/
-			uint8_t i, count;
-			uint16_t sum;
-			for(i = 10, sum = 0, count = 0;i < 118; i++)
+			uint8_t left = 63, right = 63, temp;
+			while(left > 13 && ccd_p[0][left] && ccd_p[0][left - 1]
+					&& ccd_p[0][left - 2] && ccd_p[0][left - 3])
+				left--;
+			while(right < 115 && ccd_p[0][right] && ccd_p[0][right + 1]
+					&& ccd_p[0][right + 2] && ccd_p[0][right + 3])
+				right++;
+			direction[0] = (right + left) / 2;
+			if(direction[1])
 			{
-				if(!ccd_p[0][i])
-				{
-					sum += i;
-					count++;
-				}
+				temp = direction[0];
+				direction[0] = (direction[0] + direction[1]) / 2;
+				direction[1] = temp;
 			}
-			sum /= count;
-			sum -= 63;
-			direction[0] = sum * 0.6 + 68;
-			direction[0] = (direction[0] + direction[1]) / 2;
-			direction[1] = direction[0];
+			else
+				direction[1] = direction[0];
 			__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction[0]);
     }
 }
@@ -509,6 +510,7 @@ void ccd_process()
 	}
 	
 	yuzhi = (max + min) / 2;  //阈值设为最大值与最小值的中值
+	yuzhi += (max - min) / 3;
 	
 	//对原始数据进行二值化处理
 	for(i = 0; i < 128; i++)
