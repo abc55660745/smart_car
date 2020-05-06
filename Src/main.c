@@ -453,39 +453,49 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
 			}
 			*/
-			uint8_t left = 66, right = 60, temp, *l = &left, *r = &right;
-			while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-					&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-				left--;
-			while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-					&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-				right++;
-			left--;
-			right++;
-			if(abs(left - 63) >= abs(right - 63))
-				left = right;
-			else
-				right = left;
-			while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-					&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-				left--;
-			while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-					&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-				right++;
-			direction[0] = (right + left) / 2;
-			if(direction[1])
+		  //这是新的识路程序，效果待测
+			uint8_t left = 63, right = 63, temp, dir;
+			if(!ccd_p[0][63])
 			{
-				temp = direction[0];
-				direction[0] = (direction[0] + direction[1]) / 2;
-				direction[1] = temp;
+				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+					right++;
 			}
-			else
+			if(right - left < 14)
+			{
+				left = 66;
+				right = 60;
+				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+					right++;
+				left--;
+				right++;
+				if(abs(left - 63) >= abs(right - 63))
+					left = right;
+				else
+					right = left;
+				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+					right++;
+				direction[0] = (right + left) / 2;
+				if(direction[1] != 0)
+					temp = (direction[0] + direction[1]) / 2;
 				direction[1] = direction[0];
-			direction[0] = 23 + direction[0] * 0.7;
-			if(direction[0] > 30 && direction[0] < 106)
-				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction[0]);
-			else
-				direction[1] = 0;
+				temp = 23 + (double)temp * 0.7;
+				if(direction[0] > 30 && direction[0] < 106)
+					__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
+				else
+					direction[1] = 0;
+			}
     }
 }
 
@@ -525,16 +535,23 @@ void ccd_process()
 		if(ccd_s[i] < min)
 			min = ccd_s[i];
 	}
-	
-	yuzhi = (max + min) / 2;  //阈值设为最大值与最小值的中值
-	yuzhi += (max - min) / 3;
-	
-	//对原始数据进行二值化处理
-	for(i = 0; i < 128; i++)
+	if(max - min > 5)
 	{
-		if(ccd_s[i] < yuzhi)
-			ccd_p[0][i] = 0;
-		else
+		yuzhi = (max + min) / 2;  //阈值设为最大值与最小值的中值
+		yuzhi += (max - min) / 3;
+		
+		//对原始数据进行二值化处理
+		for(i = 0; i < 128; i++)
+		{
+			if(ccd_s[i] < yuzhi)
+				ccd_p[0][i] = 0;
+			else
+				ccd_p[0][i] = 1;
+		}
+	}
+	else
+	{
+		for(i = 0; i < 128; i++)
 			ccd_p[0][i] = 1;
 	}
 	
