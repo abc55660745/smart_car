@@ -50,7 +50,8 @@ char zhijiao = 0;             //暂时没啥用
 uint8_t ccd_s[128] = {0};     //CCD原始值记录
 uint8_t ccd_p[2][128] = {0};  //CCD处理值记录，二维数组保存上一次记录
 uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
-uint16_t ccd_SI = 1200;       //CCD曝光时间，单位为半个CLK周期
+uint16_t ccd_SI = 1200;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
+uint8_t ccd_ok = 0;
 
 //通过串口2向匿名地面站发送函数，参数1为发送数组指针，参数2为发送数组大小
 void send(int16_t*, uint8_t);
@@ -412,11 +413,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			else if(ccd_count == 130)  //计数130时ADC转换全部完成，调用下一步处理程序
 			{
-				ccd_process();
+				ccd_ok = 1;
 			}
 			if(ccd_count == ccd_SI)  //判断是否达到曝光时间启动下一个SI循环
 			{
 				ccd_count = 0;
+				ccd_ok = 0;
 				HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_SET);
 			}
 			if(ccd_count == 1)  //SI写0
@@ -454,47 +456,51 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			*/
 		  //这是新的识路程序，效果待测
-			uint8_t left = 63, right = 63, temp, dir;
-			if(!ccd_p[0][63])
+			uint8_t left = direction[1], right = direction[1], temp, dir;
+			if(ccd_ok)
 			{
-				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+				ccd_process();
+				if(!ccd_p[0][63])
+				{
+					while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+							&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+						left--;
+					while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+							&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+						right++;
+				}
+				if(right - left < 14)
+				{
+					left = 66;
+					right = 60;
+					while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+							&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+						left--;
+					while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+							&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+						right++;
 					left--;
-				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
 					right++;
-			}
-			if(right - left < 14)
-			{
-				left = 66;
-				right = 60;
-				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-					right++;
-				left--;
-				right++;
-				if(abs(left - 63) >= abs(right - 63))
-					left = right;
-				else
-					right = left;
-				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-					right++;
-				direction[0] = (right + left) / 2;
-				if(direction[1] != 0)
-					temp = (direction[0] + direction[1]) / 2;
-				direction[1] = direction[0];
-				temp = 23 + (double)temp * 0.7;
-				if(direction[0] > 30 && direction[0] < 106)
-					__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
-				else
-					direction[1] = 0;
+					if(abs(left - 63) >= abs(right - 63))
+						left = right;
+					else
+						right = left;
+					while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+							&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+						left--;
+					while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+							&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+						right++;
+					direction[0] = (right + left) / 2;
+					if(direction[1] != 0)
+						temp = (direction[0] + direction[1]) / 2;
+					direction[1] = direction[0];
+					temp = 23 + (double)temp * 0.7;
+					if(direction[0] > 30 && direction[0] < 106)
+						__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
+					else
+						direction[1] = 0;
+				}
 			}
     }
 }
@@ -554,7 +560,7 @@ void ccd_process()
 		for(i = 0; i < 128; i++)
 			ccd_p[0][i] = 1;
 	}
-	
+	ccd_ok = 1;
 	/*
 	for(i = 0; i < 128; i++)
 	{
