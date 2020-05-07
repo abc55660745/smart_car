@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "structoperation.h"
 
 /* USER CODE END Includes */
@@ -39,18 +40,19 @@
 /* USER CODE BEGIN PTD */
 
 #define RXBUFFERSIZE  256
+#define MAXN 6
 
 char RxBuffer[RXBUFFERSIZE];  //串口接收使用数组
 uint8_t aRxBuffer;            //同上
 uint8_t Uart1_Rx_Cnt = 0;     //串口接收计数
-int16_t direction[3] = {0};       //舵机PID值暂存
+int16_t direction[MAXN] = {0};       //舵机PID值暂存
 char ad_flag = 1;             //ADC完成标志位（用于同步锁）
 char ccd_flag = 0;            //CCD的CLK电平记录，用于调控CLK输出
 char zhijiao = 0;             //暂时没啥用
 uint8_t ccd_s[128] = {0};     //CCD原始值记录
 uint8_t ccd_p[2][128] = {0};  //CCD处理值记录，二维数组保存上一次记录
 uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
-uint16_t ccd_SI = 1200;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
+uint16_t ccd_SI = 5600;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
 uint8_t ccd_ok = 0;
 
 //通过串口2向匿名地面站发送函数，参数1为发送数组指针，参数2为发送数组大小
@@ -64,6 +66,8 @@ void send_ccd(void);
 
 //CCD上位机通信使用
 void PutChar(unsigned char data);
+
+int16_t sabs(int16_t in);
 
 /* USER CODE END PTD */
 
@@ -209,7 +213,7 @@ int main(void)
 		}
 		se[128] = '\n';
 		se[129] = '\r';
-		HAL_UART_Transmit(&huart3, (uint8_t *)direction[1], 1,0xFFFF);
+		//HAL_UART_Transmit(&huart3, (uint8_t *)direction[1], 1,0xFFFF);
 		//HAL_UART_Transmit(&huart3, (uint8_t *)se, 130,0xFFFF);
 		
 		
@@ -433,76 +437,74 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 	
   }
-		if (htim == (&htim7))
-    {
-      //定时器7中断函数
-			/* 本段代码已废弃，这里以后要写PID程序
-			uint8_t count = 0, i;
-			int16_t sum = 0;
-			for(i = 5; i < 123; i++)
+	if (htim == (&htim7))
+  {
+		//定时器7中断函数
+	  //这是新的识路程序，效果待测
+		uint8_t left = direction[1], right = direction[1], temp, dir;
+		if(ccd_ok)
+		{
+			ccd_process();
+			if(!ccd_p[0][63])
 			{
-				if(!ccd_p[i])
+				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+					right++;
+			}
+			if(right - left < 30)
+			{
+				uint8_t count = 0, i;
+				uint16_t sum = 0;
+				left = 66;
+				right = 60;
+				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]							&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+					right++;
+				left--;
+				right++;
+				if(63 - left >= right - 63)
+					left = right;
+				else
+					right = left;
+				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+					left--;
+				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+					right++;
+				direction[0] = (right + left) / 2;
+				for(i = 0; i < MAXN && direction[i]; i++)
 				{
-					sum += i;
+					sum += direction[i];
 					count++;
 				}
-			}
-			if(count < 10)
-			{
-				sum /= count;
-				sum -= 63;
-				direction = sum * 0.7 + 68;
-				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
-			}
-			*/
-		  //这是新的识路程序，效果待测
-			uint8_t left = direction[1], right = direction[1], temp, dir;
-			if(ccd_ok)
-			{
-				ccd_process();
-				if(!ccd_p[0][63])
+				temp = 23 + (double)(sum / count) * 0.7;
+				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
+				for(i = MAXN - 2; i >= 0 ; i--)
 				{
-					while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-							&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-						left--;
-					while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-							&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-						right++;
-				}
-				if(right - left < 14)
-				{
-					left = 66;
-					right = 60;
-					while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-							&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-						left--;
-					while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-							&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-						right++;
-					left--;
-					right++;
-					if(abs(left - 63) >= abs(right - 63))
-						left = right;
-					else
-						right = left;
-					while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-							&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-						left--;
-					while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-							&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-						right++;
-					direction[0] = (right + left) / 2;
-					if(direction[1] != 0)
-						temp = (direction[0] + direction[1]) / 2;
-					direction[1] = direction[0];
-					temp = 23 + (double)temp * 0.7;
-					if(direction[0] > 30 && direction[0] < 106)
-						__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
-					else
-						direction[1] = 0;
+					direction[i + 1] = direction[i];
 				}
 			}
-    }
+		}
+  }
+}
+
+int16_t sabs(int16_t in)
+{
+	if(in > 0)
+	{
+		return in;
+	}
+	else
+	{
+		in *= -1;
+		return in;
+	}
 }
 
 //ADC中断回调函数
