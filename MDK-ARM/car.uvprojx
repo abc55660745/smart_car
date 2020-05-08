@@ -466,6 +466,21 @@
               <FileType>1</FileType>
               <FilePath>../Src/stm32f4xx_hal_msp.c</FilePath>
             </File>
+            <File>
+              <FileName>connect.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\connect.c</FilePath>
+            </File>
+            <File>
+              <FileName>connect.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Inc\connect.h</FilePath>
+            </File>
+            <File>
+              <FileName>callback.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\callback.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

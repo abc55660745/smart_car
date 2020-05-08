@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
 #include "structoperation.h"
+#include "connect.h"
 
 /* USER CODE END Includes */
 
@@ -40,7 +40,7 @@
 /* USER CODE BEGIN PTD */
 
 #define RXBUFFERSIZE  256
-#define MAXN 6
+
 
 char RxBuffer[RXBUFFERSIZE];  //串口接收使用数组
 uint8_t aRxBuffer;            //同上
@@ -55,19 +55,8 @@ uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
 uint16_t ccd_SI = 5600;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
 uint8_t ccd_ok = 0;
 
-//通过串口2向匿名地面站发送函数，参数1为发送数组指针，参数2为发送数组大小
-void send(int16_t*, uint8_t);
-
 //ccd处理函数，包含二值化和舵机控制
 void ccd_process(void);
-
-//将CCD原始数据发送至CCD上位机软件
-void send_ccd(void);
-
-//CCD上位机通信使用
-void PutChar(unsigned char data);
-
-int16_t sabs(int16_t in);
 
 /* USER CODE END PTD */
 
@@ -163,65 +152,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		
-		
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-		//printf("test");
-		/* 把这个留在这里，ADC启动转换使用
-		if(ad_flag)
-		{
-			HAL_ADC_Start_IT(&hadc2);
-			ad_flag = 0;
-		}
-		*/
-		//int16_t data[2] = {10,20};
-		//data[0] = direction;
-		//send(data, 2);
-		/*
-		//__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
-		while (direction< 113)
-	  {
-			
-		  direction++;
-			int16_t data[2] = {10,20};
-			data[0] = direction;
-			send(data, 2);
-		  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);    //?????,?????
-//		  TIM3->CCR1 = pwmVal;    ?????
-		  HAL_Delay(20);
-	  }
-	  while (direction > 23)
-	  {
-		  direction--;
-			int16_t data[2] = {10,20};
-			data[0] = direction;
-			send(data, 2);
-		  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);    //?????,?????
-//		  TIM3->CCR1 = pwmVal;     ?????
-		  HAL_Delay(20);
-		}*/
 		
-		//通过串口3直接以01发送CCD二值化以后的数据
 		char se[130];
 		uint8_t i;
-		HAL_Delay(500);
+		int16_t data[2] = {10,20};
+		
+		//通过串口2发送direction的图像
+		data[0] = direction[0];
+		send(data, 1);
+		
+		//通过串口3直接以01发送CCD二值化以后的数据
 		for(i = 0; i < 128; i++)
 		{
 			se[i] = ccd_p[0][i] + '0';
 		}
 		se[128] = '\n';
 		se[129] = '\r';
-		//HAL_UART_Transmit(&huart3, (uint8_t *)direction[1], 1,0xFFFF);
-		//HAL_UART_Transmit(&huart3, (uint8_t *)se, 130,0xFFFF);
+		HAL_UART_Transmit(&huart3, (uint8_t *)se, 130,0xFFFF);
 		
-		
-		
-		//HAL_Delay(50);
+		//通过串口1发送CCD原始图像
 		send_ccd();
-		//printf("\ntt\n");
-    
+		
+		//频率设为10hz
+		HAL_Delay(100);
   }
   /* USER CODE END 3 */
 }
@@ -270,61 +225,6 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-//CCD上位机通信使用
-void SendHex(unsigned char data)
-{
-	unsigned char temp;
-	temp = data >> 4;
-	if(temp >= 10)
-	{
-		PutChar(temp - 10 + 'A');
-	}
-	else
-	{
-		PutChar(temp + '0');
-	}
-	temp = data & 0x0f;
-	if(temp >= 10)
-	{
-		PutChar(temp - 10 + 'A');
-	}
-	else
-	{
-		PutChar(temp + '0');
-	}
-}
-
-//向CCD上位机发送CCD原始数据
-void send_ccd()
-{
-	uint8_t dataa[150], *data = dataa;
-	int len;
-	unsigned char lrc=0;
-	dataa[0] = 0;
-	dataa[1] = 132;
-	dataa[2] = 0;
-	dataa[3] = 0;
-	dataa[4] = 0;
-	dataa[5] = 0;
-	for(len = 0; len < 128; len++)
-	{
-		dataa[len + 6] = ccd_s[len];
-	}
-	PutChar('*'); // 发送帧头，一个字节
-	len = (int)(data[0]<<8) | (int)(data[1]) ;
-	data += 2; // 调整指针
-	PutChar('L'); // 发送帧类型，共两个字节
-	PutChar('D');
-	while(len--) // 发送数据的ASCII码，含保留字节和CCD数据
-	{
-		SendHex(*data);
-		lrc += *data++;
-	}
-	lrc = 0-lrc; // 计算CRC，可以为任意值
-	SendHex(lrc); // 发送CRC校验ASCII
-	PutChar('#'); // 发送帧尾，一个字节
-}
-
 //串口回调函数
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -371,257 +271,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	
 	HAL_UART_Receive_IT(&huart1, (uint8_t *)&aRxBuffer, 1);
 }
-
-//向匿名地面站发送数据，使用方法见上，需要包含structoperation
-void send(int16_t *in, uint8_t n)
-{
-	uint8_t i;
-	struct anotext send;
-	send.head = 0xaaaa;
-	send.name = 0xf3;
-	send.len = n * 2;
-	send.data = malloc(n * 2 + 1);
-	send.data[n * 2] = 0;
-	short2char(send.data, in, n * 2);
-	send.sum = 0;
-	char *ss = ano2char(send);
-	for(i = 0; i < n * 2 + 4; i++)
-		ss[n * 2 + 4] += ss[i];
-	HAL_UART_Transmit(&huart2, (uint8_t *)ss, n * 2 + 5,0xFFFF);
-	free(ss);
-	delstr(send);
-}
-
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  if (htim == (&htim4))
-  {
-	//定时器4中断函数
-		if(ccd_flag)  //CLK为1时将CLK写0，并将CCD计数+1
-		{
-			HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_RESET);
-			ccd_flag = 0;
-			ccd_count++;
-			if(ccd_count <= 128)  //在CCD下降沿启动ADC转换
-			{
-				if(ad_flag)  //根据ADC是否上锁决定是否调用ADC
-				{
-					HAL_ADC_Start_IT(&hadc2);
-					ad_flag = 0;  //ADC上锁（转换完成后解锁
-				}
-				else
-				{
-					ccd_s[ccd_count - 1] = 127;  //如果ADC上锁则直接写入中值
-				}
-			}
-			else if(ccd_count == 130)  //计数130时ADC转换全部完成，调用下一步处理程序
-			{
-				ccd_ok = 1;
-			}
-			if(ccd_count == ccd_SI)  //判断是否达到曝光时间启动下一个SI循环
-			{
-				ccd_count = 0;
-				ccd_ok = 0;
-				HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_SET);
-			}
-			if(ccd_count == 1)  //SI写0
-			{
-				HAL_GPIO_WritePin(SI_GPIO_Port, SI_Pin, GPIO_PIN_RESET);
-			}
-		}
-		else  //CLK为0时写1
-		{
-			HAL_GPIO_WritePin(CLK_GPIO_Port, CLK_Pin, GPIO_PIN_SET);
-			ccd_flag = 1;
-		}
-	
-  }
-	if (htim == (&htim7))
-  {
-		//定时器7中断函数
-	  //这是新的识路程序，效果待测
-		uint8_t left = direction[1], right = direction[1], temp, dir;
-		if(ccd_ok)
-		{
-			ccd_process();
-			if(!ccd_p[0][63])
-			{
-				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-					right++;
-			}
-			if(right - left < 30)
-			{
-				uint8_t count = 0, i;
-				uint16_t sum = 0;
-				left = 66;
-				right = 60;
-				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]							&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-					right++;
-				left--;
-				right++;
-				if(63 - left >= right - 63)
-					left = right;
-				else
-					right = left;
-				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-					right++;
-				direction[0] = (right + left) / 2;
-				for(i = 0; i < MAXN && direction[i]; i++)
-				{
-					sum += direction[i];
-					count++;
-				}
-				temp = 23 + (double)(sum / count) * 0.7;
-				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
-				for(i = MAXN - 2; i >= 0 ; i--)
-				{
-					direction[i + 1] = direction[i];
-				}
-			}
-		}
-  }
-}
-
-int16_t sabs(int16_t in)
-{
-	if(in > 0)
-	{
-		return in;
-	}
-	else
-	{
-		in *= -1;
-		return in;
-	}
-}
-
-//ADC中断回调函数
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
-{
-	ad_flag = 1;  //ADC同步锁解锁
-	 HAL_ADC_Stop_IT(&hadc2); 
-	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);  //将ADC数据写入CCD数组
-}
-
-//CCD上位机通信使用
-void PutChar(unsigned char data)
-{
-	unsigned char *p = &data;
-	HAL_UART_Transmit(&huart1, (uint8_t *)p, 1, 0xffff);
-}
-
-//重定义printf使用
-int fputc(int ch, FILE *f)
-{
-	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xffff);
-  return ch;
-}
-
-//CCD数据处理函数
-void ccd_process()
-{
-	uint8_t max, min, i = 5, j, yuzhi, count = 0, temp[128], ok = 0;
-	int16_t sum = 0;
-	
-	//循环寻找CCD原始数据中最大值与最小值
-	for(max = ccd_s[i], min = ccd_s[i]; i < 123; i++)
-	{
-		if(ccd_s[i] > max)
-			max = ccd_s[i];
-		if(ccd_s[i] < min)
-			min = ccd_s[i];
-	}
-	if(max - min > 5)
-	{
-		yuzhi = (max + min) / 2;  //阈值设为最大值与最小值的中值
-		yuzhi += (max - min) / 3;
-		
-		//对原始数据进行二值化处理
-		for(i = 0; i < 128; i++)
-		{
-			if(ccd_s[i] < yuzhi)
-				ccd_p[0][i] = 0;
-			else
-				ccd_p[0][i] = 1;
-		}
-	}
-	else
-	{
-		for(i = 0; i < 128; i++)
-			ccd_p[0][i] = 1;
-	}
-	ccd_ok = 1;
-	/*
-	for(i = 0; i < 128; i++)
-	{
-		temp[i] = 0;
-	}
-	
-	//下面使用两次识别取并集降低干扰
-	//对本次数据与上次数据寻找并集，并将并集存在位置写入临时函数
-	for(i = 4, count = 4; i < 124; i++)
-	{
-		if(ccd_p[0][i] == ccd_p[1][i] && ccd_p[0][i] == 0)
-		{
-			temp[count] = i;
-			count++;
-			ok = 1;
-		}
-	}
-	
-	//将i,j设为并集中位数位置
-	i = temp[count / 2];
-	j = i;
-	count = 0;
-	//从并集中位数位置开始，在本次数据中向上寻找上升沿
-	for(;!ccd_p[0][i] && i <= 124; i++)
-	{
-		sum += i;
-		count++;
-	}
-	//从并集中位数位置开始，在本次数据中向下寻找下降沿
-	for(;!ccd_p[0][j] && j >= 4; j--)
-	{
-		sum += i;
-		count++;
-	}
-	//上述操作得到上次识别的黑线在本次识别中的位置（去除误识别的其他黑色
-	sum /= count;
-	sum -= 63;
-	//得到本次黑线的中间位置，使用简单计算换算为舵机PWM占空比并写入舵机
-	direction = sum * 0.6 + 68;
-	if(ok && direction != 0)
-	{
-		__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, direction);
-	}
-	for(i = 0; i < 128; i++)
-	{
-		ccd_p[1][i] = ccd_p[0][i];  //将本次数据写入到上次位置，等待下一次读取
-	}
-	*/
-	
-}
-
-//重定义printf使用
-int fgetc(FILE *f)
-{
-  uint8_t ch = 0;
-  HAL_UART_Receive(&huart1, &ch, 1, 0xffff);
-  return ch;
-}
-
 /* USER CODE END 4 */
 
 /**
