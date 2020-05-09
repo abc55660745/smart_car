@@ -63,7 +63,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 	
     }
-	if (htim == (&htim7))
+	else if (htim == (&htim7))
     {
 		//定时器7中断函数
 	    //这是新的识路程序，效果待测
@@ -140,7 +140,7 @@ void ccd_process()
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	ad_flag = 1;  //ADC同步锁解锁
-	 HAL_ADC_Stop_IT(&hadc2); 
+	HAL_ADC_Stop_IT(&hadc2); 
 	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);  //将ADC数据写入CCD数组
 }
 
