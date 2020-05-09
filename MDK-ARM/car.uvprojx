@@ -477,9 +477,9 @@
               <FilePath>..\Inc\connect.h</FilePath>
             </File>
             <File>
-              <FileName>callback.c</FileName>
+              <FileName>ccd.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\callback.c</FilePath>
+              <FilePath>.\ccd.c</FilePath>
             </File>
           </Files>
         </Group>

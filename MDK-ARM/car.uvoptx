@@ -519,8 +519,8 @@
       <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\callback.c</PathWithFileName>
-      <FilenameWithoutPath>callback.c</FilenameWithoutPath>
+      <PathWithFileName>.\ccd.c</PathWithFileName>
+      <FilenameWithoutPath>ccd.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

@@ -10,8 +10,14 @@ extern uint8_t ccd_ok;
 extern uint16_t ccd_SI;
 extern int16_t direction[MAXN];
 extern uint8_t ccd_p[2][128];
+uint8_t ren_flag = 0;
+uint16_t ren_count = 0;
 
 void ccd_process(void);
+uint16_t gen_pwm(void);
+void line_go(void);
+void ren_go(void);
+void ren_judge(void);
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -76,41 +82,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			if(right - left < 30)
 			{
-				int8_t i;
-				uint8_t count = 0;
-				uint16_t sum = 0;
-				left = 66;
-				right = 60;
-				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-					right++;
-				left--;
-				right++;
-				if(63 - left >= right - 63)
-					left = right;
+				ren_judge();
+				if((ren_flag || ren_count) && ren_count <= 60000)
+				{
+					ren_count++;
+				}
+				if(ren_flag)
+				{
+					ren_go();
+				}
 				else
-					right = left;
-				while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-						&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-						&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-					right++;
-				direction[0] = (right + left) / 2;
-				for(i = 0; i < MAXN && direction[i]; i++)
 				{
-					sum += direction[i];
-					count++;
+					line_go();
 				}
-				temp = 23 + (double)(sum / count) * 0.7;
+				temp = gen_pwm();
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
-				for(i = MAXN - 2; i >= 0 ; i--)
-				{
-					direction[i + 1] = direction[i];
-				}
 			}
 		}
     }
@@ -156,4 +142,64 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	ad_flag = 1;  //ADC同步锁解锁
 	 HAL_ADC_Stop_IT(&hadc2); 
 	ccd_s[ccd_count - 1] = HAL_ADC_GetValue(&hadc2);  //将ADC数据写入CCD数组
+}
+
+//通过算术平均滤波算法生成pwm值
+uint16_t gen_pwm()
+{
+	int8_t i;
+	uint8_t count = 0;
+	uint16_t temp, sum = 0;
+	for(i = 0; i < MAXN && direction[i]; i++)
+	{
+		sum += direction[i];
+		count++;
+	}
+	for(i = MAXN - 2; i >= 0 ; i--)
+	{
+		direction[i + 1] = direction[i];
+	}
+	temp = 23 + (double)(sum / count) * 0.7;
+	return temp;
+}
+
+void line_go()
+{
+	uint8_t left = 66, right = 60;
+	while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+			&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+		left--;
+	while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+			&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+		right++;
+	left--;
+	right++;
+	if(63 - left >= right - 63)
+		left = right;
+	else
+		right = left;
+	while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+			&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+		left--;
+	while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+			&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+		right++;
+	direction[0] = (right + left) / 2;
+}
+
+void ren_go()
+{
+	if(ren_count < 1000)  //这个值还得调
+	{
+		//向左转
+	}
+	else
+	{
+		//向右转
+	}
+}
+
+void ren_judge()
+{
+	
 }
