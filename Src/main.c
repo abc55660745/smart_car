@@ -52,7 +52,7 @@ char zhijiao = 0;             //暂时没啥用
 uint8_t ccd_s[128] = {0};     //CCD原始值记录
 uint8_t ccd_p[2][128] = {0};  //CCD处理值记录，二维数组保存上一次记录
 uint16_t ccd_count = 0;       //CCD的CLK输出计次，用于调控数组写入
-uint16_t ccd_SI = 5600;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
+uint16_t ccd_SI = 500;       //CCD曝光时间，单位为半个CLK周期，受转换限制影响，该值需大于171
 uint8_t ccd_ok = 0;
 
 //ccd处理函数，包含二值化和舵机控制
