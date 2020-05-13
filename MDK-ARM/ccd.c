@@ -141,7 +141,7 @@ void ccd_process()
 	if(max - min > 5)
 	{
 		yuzhi = (max + min) / 2;  //阈值设为最大值与最小值的中值
-		yuzhi += (max - min) / 3;
+		//yuzhi += (max - min) / 3;
 		
 		//对原始数据进行二值化处理
 		for(i = 0; i < 128; i++)
@@ -170,7 +170,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	
 	if(temp != 255)
 	{
-		t = (float)temp * ccd_q[ccd_count - 1];
+		t = (float)temp * ccd_q[ccd_count - 1] + 20;
 		if(t <= 255)
 			ccd_s[ccd_count - 1] = t;
 		else
