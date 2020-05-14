@@ -12,6 +12,7 @@ extern int16_t direction[MAXN];
 extern uint8_t ccd_p[2][128];
 uint8_t ren_flag = 0;
 uint16_t ren_count = 0;
+uint8_t ren_dir[2] = {0};
 
 const float ccd_q[128] = {10.800000, 9.642857, 8.901099, 9.101124, 8.019802, 
 								7.714286, 7.168142, 6.864407, 6.532258, 6.090226, 5.785714, 
@@ -41,6 +42,17 @@ uint16_t gen_pwm(void);
 void line_go(void);
 void ren_go(void);
 void ren_judge(void);
+								
+int16_t sabs(int16_t in)
+{
+		if(in >= 0)
+			return in;
+		else
+		{
+			int16_t t = in * -1;
+			return t;
+		}
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -87,10 +99,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	
     }
 	else if (htim == (&htim7))
-    {
+  {
 		//定时器7中断函数
-	    //这是新的识路程序，效果待测
+	  //这是新的识路程序，效果海星
 		uint8_t left = direction[1], right = direction[1], temp;
+		uint16_t speed;
 		if(ccd_ok)
 		{
 			ccd_process();
@@ -121,8 +134,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				temp = gen_pwm();
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
 			}
+			//这里是自动调速程序
+			speed = 100 - sabs(direction[0] - 63) / 2 - sabs(direction[1] - direction[0]);
+			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, speed);
+			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, speed);
+			
 		}
-    }
+  }
 }
 
 //CCD数据处理函数
@@ -185,7 +203,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 //通过算术平均滤波算法生成pwm值
 uint16_t gen_pwm()
 {
+	int8_t i;
 	/*
+	//由于效果原因该滤波暂不使用
 	int8_t i;
 	uint8_t count = 0;
 	uint16_t temp, sum = 0;
@@ -202,6 +222,13 @@ uint16_t gen_pwm()
 	return temp;
 	*/
 	uint8_t temp;
+	
+	for(i = MAXN - 2; i >= 0 ; i--)
+	{
+		direction[i + 1] = direction[i];
+	}
+	
+	
 	temp = 23 + (double)(direction[0]) * 0.7;
 	return temp;
 }
@@ -235,10 +262,12 @@ void ren_go()
 	if(ren_count < 1000)  //这个值还得调
 	{
 		//向左转
+		direction[0] = ren_dir[0];
 	}
 	else
 	{
 		//向右转
+		direction[0] = ren_dir[1];
 	}
 }
 
@@ -269,12 +298,20 @@ void ren_judge()
 		if(!ren_flag)
 		{
 			if(line[i + 1] - line[i] < 20)
+			{
 				flag = 1;
+				ren_dir[0] = line[i];
+				ren_dir[1] = line[i + 1];
+			}
 		}
 		else
 		{
 			if(line[i + 1] - line[i] < 50)
+			{
 				flag = 1;
+				ren_dir[0] = line[i];
+				ren_dir[1] = line[i + 1];
+			}
 		}
 	}
 	ren_flag = flag;

@@ -154,7 +154,7 @@ int main(void)
   {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-		/*
+		
 		char se[130];
 		uint8_t i;
 		int16_t data[2] = {10,20};
@@ -177,12 +177,6 @@ int main(void)
 		
 		//频率设为10hz
 		HAL_Delay(100);
-		*/
-		uint16_t speed;
-		speed = 100 - abs(direction[0] - 63) / 2;
-		__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, speed);
-		__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, speed);
-		HAL_Delay(5);
   }
   /* USER CODE END 3 */
 }
