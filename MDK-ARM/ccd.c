@@ -12,30 +12,33 @@ extern int16_t direction[MAXN];
 extern uint8_t ccd_p[2][128];
 uint8_t ren_flag = 0;
 uint16_t ren_count = 0;
+uint8_t ren_flag_count = 0;
 uint8_t ren_dir[2] = {0};
+uint8_t process_flag = 1;
+uint8_t step = 0;
 
-const float ccd_q[128] = {10.800000, 9.642857, 8.901099, 9.101124, 8.019802, 
-								7.714286, 7.168142, 6.864407, 6.532258, 6.090226, 5.785714, 
-								5.510204, 5.192308, 4.939024, 4.709302, 4.450549, 4.285714, 
-								4.090909, 4.009901, 3.767442, 3.600000, 3.506494, 3.403361, 
-								3.360996, 3.389121, 3.139535, 3.115385, 3.079848, 3.022388, 
-								3.011152, 2.956204, 2.913669, 2.862191, 2.842105, 2.793103, 
-								2.682119, 2.629870, 2.539185, 2.484663, 2.439759, 2.368421, 
-								2.314286, 2.334294, 2.243767, 2.201087, 2.195122, 2.160000, 
-								2.131579, 2.120419, 2.087629, 2.045455, 2.030075, 2.009926, 
-								1.970803, 1.942446, 2.250000, 1.892523, 1.928571, 1.910377, 
-								1.937799, 1.879350, 1.879350, 1.961259, 1.892523, 1.875000, 
-								1.892523, 1.910377, 1.951807, 1.928571, 1.951807, 1.966019, 
-								1.980440, 2.004950, 2.076923, 2.061069, 2.098446, 2.131579, 
-								2.142857, 2.219178, 2.334294, 2.301136, 2.327586, 2.454545, 
-								2.432432, 2.500000, 2.547170, 2.621359, 2.682119, 2.755102, 
-								2.822300, 2.903226, 3.022388, 3.079848, 3.127413, 3.266129, 
-								3.279352, 3.417722, 3.521739, 3.632287, 3.732719, 3.820755, 
-								3.951220, 4.070352, 4.175258, 4.402174, 4.475138, 4.628571, 
-								4.764706, 5.000000, 5.192308, 5.328947, 5.586207, 5.744681, 
-								6.000000, 6.230769, 6.428571, 6.585366, 6.750000, 6.923077, 
-								7.105263, 7.297297, 7.714286, 7.788462, 8.181818, 8.526316, 
-								9.000000, 9.529412, 9.87804};
+const float ccd_q[128] = {2.621359, 2.347826, 2.237569, 2.347826, 2.137203, 
+								2.137203, 2.055838, 2.040302, 1.985294, 1.923990, 1.905882, 
+								1.875000, 1.840909, 1.796009, 1.776316, 1.741935, 1.719745, 
+								1.683992, 1.691023, 1.636364, 1.600791, 1.572816, 1.566731, 
+								1.563707, 1.591356, 1.494465, 1.483516, 1.475410, 1.451613, 
+								1.446429, 1.423550, 1.403813, 1.398964, 1.396552, 1.379898, 
+								1.347754, 1.341060, 1.312804, 1.300161, 1.291866, 1.269592, 
+								1.246154, 1.275591, 1.232877, 1.219880, 1.219880, 1.207154, 
+								1.192931, 1.187683, 1.180758, 1.155492, 1.158798, 1.148936, 
+								1.136045, 1.125000, 1.285714, 1.108071, 1.126565, 1.118785, 
+								1.136045, 1.105048, 1.117241, 1.160458, 1.118785, 1.114168, 
+								1.121884, 1.123440, 1.140845, 1.129707, 1.131285, 1.131285, 
+								1.132867, 1.137640, 1.167147, 1.157143, 1.165468, 1.173913, 
+								1.170520, 1.194690, 1.242331, 1.208955, 1.212575, 1.259720, 
+								1.244240, 1.265625, 1.271586, 1.281646, 1.296000, 1.310680, 
+								1.308562, 1.325696, 1.347754, 1.361345, 1.361345, 1.389365, 
+								1.372881, 1.406250, 1.418564, 1.438721, 1.441281, 1.441281, 
+								1.456835, 1.472727, 1.483516, 1.502783, 1.514019, 1.539924, 
+								1.551724, 1.591356, 1.610338, 1.616766, 1.633065, 1.659836, 
+								1.708861, 1.760870, 1.800000, 1.857798, 1.896956, 1.956522, 
+								1.970803, 2.014925, 2.093023, 2.125984, 2.177419, 2.237569, 
+								2.320917, 2.454545, 2.53918};
 
 void ccd_process(void);
 uint16_t gen_pwm(void);
@@ -102,32 +105,37 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
 		//定时器7中断函数
 	  //这是新的识路程序，效果海星
-		uint8_t left = direction[1], right = direction[1], temp;
+		uint8_t left = direction[1], right = direction[1], temp, flag = 0, i;
 		uint16_t speed;
 		if(ccd_ok)
 		{
 			ccd_process();
-			if(!ccd_p[0][63])
+			for(i = 4; i < 124; i++)
 			{
-				while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-						&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
-					left--;
-				while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-						&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
-					right++;
+				if(!ccd_p[0][i])
+					flag = 1;
 			}
-			if(right - left < 30)
+			if(1)
 			{
+				if(!ccd_p[0][63])
+				{
+					while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+							&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+						left--;
+					while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+							&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+						right++;
+				}
 				ren_judge();
-				if((ren_flag || ren_count) && ren_count <= 60000)
+				if((ren_flag || ren_count) && ren_count <= 40000)
 				{
 					ren_count++;
 				}
-				if(ren_flag)
+				if(ren_count > 0 && ren_count < 60000)
 				{
 					ren_go();
 				}
-				else
+				else// if(right - left < 30)
 				{
 					line_go();
 				}
@@ -135,7 +143,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 				__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_1, temp);
 			}
 			//这里是自动调速程序
-			speed = 100 - sabs(direction[0] - 63) / 2 - sabs(direction[1] - direction[0]);
+			
+			if(step == 0)
+				speed = 110 - sabs(direction[0] - 63) / 2 - sabs(direction[1] - direction[0]);
+			else if(step == 1)
+				speed = 60;
+			else
+				speed = 40;
+			//speed = 75;
 			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, speed);
 			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, speed);
 			
@@ -169,11 +184,13 @@ void ccd_process()
 			else
 				ccd_p[0][i] = 1;
 		}
+		//process_flag = 1;
 	}
 	else
 	{
 		for(i = 0; i < 128; i++)
 			ccd_p[0][i] = 1;
+		//process_flag = 0;
 	}
 }
 
@@ -204,9 +221,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 uint16_t gen_pwm()
 {
 	int8_t i;
-	/*
+	
 	//由于效果原因该滤波暂不使用
-	int8_t i;
 	uint8_t count = 0;
 	uint16_t temp, sum = 0;
 	for(i = 0; i < MAXN && direction[i]; i++)
@@ -218,9 +234,10 @@ uint16_t gen_pwm()
 	{
 		direction[i + 1] = direction[i];
 	}
-	temp = 23 + (double)(sum / count) * 0.7;
+	temp = 30 + (double)(sum / count) * 0.6;
 	return temp;
-	*/
+	
+	/*
 	uint8_t temp;
 	
 	for(i = MAXN - 2; i >= 0 ; i--)
@@ -229,46 +246,57 @@ uint16_t gen_pwm()
 	}
 	
 	
-	temp = 23 + (double)(direction[0]) * 0.7;
+	temp = 30 + (double)(direction[0]) * 0.6;
 	return temp;
+	*/
 }
 
 void line_go()
 {
-	uint8_t left = 66, right = 60;
-	while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
-			&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+		uint8_t left = 66, right = 60;
+		while(left > 13 && !(!ccd_p[0][left] && !ccd_p[0][left - 1]
+				&& !ccd_p[0][left - 2] && !ccd_p[0][left - 3]))
+			left--;
+		while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
+				&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
+			right++;
 		left--;
-	while(right < 115 && !(!ccd_p[0][right] && !ccd_p[0][right + 1]
-			&& !ccd_p[0][right + 2] && !ccd_p[0][right + 3]))
 		right++;
-	left--;
-	right++;
-	if(63 - left >= right - 63)
-		left = right;
-	else
-		right = left;
-	while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
-			&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
-		left--;
-	while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
-			&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
-		right++;
-	direction[0] = (right + left) / 2;
+		if(63 - left >= right - 63)
+			left = right;
+		else
+			right = left;
+		while(left > 13 && !(ccd_p[0][left] && ccd_p[0][left - 1]
+				&& ccd_p[0][left - 2] && ccd_p[0][left - 3]))
+			left--;
+		while(right < 115 && !(ccd_p[0][right] && ccd_p[0][right + 1]
+				&& ccd_p[0][right + 2] && ccd_p[0][right + 3]))
+			right++;
+		direction[0] = (right + left) / 2;
+
 }
 
 void ren_go()
 {
-	if(ren_count < 1000)  //这个值还得调
+	if(ren_dir[1])
 	{
-		//向左转
-		direction[0] = ren_dir[0];
+		if(ren_count < 20000)  //这个值还得调
+		{
+			//向左转
+			direction[0] = ren_dir[1];
+		}
+		else
+		{
+			//向右转
+			//direction[0] = ren_dir[0];
+			line_go();
+		}
 	}
 	else
-	{
-		//向右转
-		direction[0] = ren_dir[1];
-	}
+		//direction[0] = ren_dir[0];
+	line_go();
+	if(ren_flag_count > 3)
+		direction[0] = ren_dir[0];
 }
 
 void ren_judge()
@@ -278,7 +306,7 @@ void ren_judge()
 	{
 		if(!down_ok)
 		{
-			if(ccd_p[i - 1] && ccd_p[i] && !ccd_p[i + 1] && !ccd_p[i + 2])
+			if(ccd_p[0][i - 1] && ccd_p[0][i] && !ccd_p[0][i + 1] && !ccd_p[0][i + 2])
 			{
 				down = i;
 				down_ok = 1;
@@ -286,10 +314,11 @@ void ren_judge()
 		}
 		else
 		{
-			if(!ccd_p[i - 1] && !ccd_p[i] && ccd_p[i + 1] && ccd_p[i + 2] && i - down < 18)
+			if(!ccd_p[0][i - 1] && !ccd_p[0][i] && ccd_p[0][i + 1] && ccd_p[0][i + 2] && i - down < 18)
 			{
 				line[count] = (i + down) / 2;
 				down_ok = 0;
+				count++;
 			}
 		}
 	}
@@ -314,5 +343,11 @@ void ren_judge()
 			}
 		}
 	}
+	ren_dir[0] = line[0];
+	ren_dir[1] = line[1];
+	for(i = 0; i < 32; i++)
+		line[i] = 0;
+	if(ren_flag == 0 && flag == 1)
+		ren_flag_count++;
 	ren_flag = flag;
 }

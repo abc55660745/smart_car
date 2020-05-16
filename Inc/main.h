@@ -67,7 +67,7 @@ void Error_Handler(void);
 #define PWM4_Pin GPIO_PIN_13
 #define PWM4_GPIO_Port GPIOE
 /* USER CODE BEGIN Private defines */
-#define MAXN 6
+#define MAXN 2
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
