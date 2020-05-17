@@ -145,11 +145,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			//这里是自动调速程序
 			
 			if(step == 0)
-				speed = 110 - sabs(direction[0] - 63) / 2 - sabs(direction[1] - direction[0]);
+				speed = 120 - sabs(direction[0] - 63) / 2 - sabs(direction[1] - direction[0]);
 			else if(step == 1)
 				speed = 60;
 			else
-				speed = 40;
+				speed = 50;
 			//speed = 75;
 			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, speed);
 			__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, speed);

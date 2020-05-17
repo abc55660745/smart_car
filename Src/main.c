@@ -179,14 +179,15 @@ int main(void)
 		//频率设为10hz
 		HAL_Delay(100);
 		*/
-		HAL_Delay(7400);
+		HAL_Delay(6000);
 		step = 1;
 		HAL_Delay(1200);
 		step = 0;
 		HAL_Delay(3400);
-		step = 2;
+		step = 0;
 		HAL_Delay(1800);
 		step = 0;
+		
   }
 	
 	
